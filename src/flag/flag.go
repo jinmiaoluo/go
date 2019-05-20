@@ -498,6 +498,7 @@ func UnquoteUsage(flag *Flag) (name string, usage string) {
 // default values of all defined command-line flags in the set. See the
 // documentation for the global function PrintDefaults for more information.
 func (f *FlagSet) PrintDefaults() {
+	// define a func to parse flag as usage message
 	f.VisitAll(func(flag *Flag) {
 		s := fmt.Sprintf("  -%s", flag.Name) // Two spaces before -; see next two comments.
 		name, usage := UnquoteUsage(flag)
@@ -850,7 +851,7 @@ func (f *FlagSet) Var(value Value, name string, usage string) {
 	if f.formal == nil {
 		f.formal = make(map[string]*Flag)
 	}
-	f.formal[name] = flag
+	f.formal[name] = flag // the map called formal will store flag that parsed with default value
 }
 
 // Var defines a flag with the specified name and usage string. The type and
@@ -921,7 +922,6 @@ func (f *FlagSet) parseOne() (bool, error) {
 	hasValue := false
 	// value should be empty string
 	value := ""
-	// kkkk
 	for i := 1; i < len(name); i++ { // equals cannot be first
 		// use '=' to parse name and value
 		if name[i] == '=' {
@@ -932,22 +932,33 @@ func (f *FlagSet) parseOne() (bool, error) {
 			break
 		}
 	}
+	// m is a map for have not been parsed flags which have been parsed with default value
 	m := f.formal
 	flag, alreadythere := m[name] // BUG
+	// flag should be parsed into formal map with default value before be parsed with true value from CLI
 	if !alreadythere {
+		// help flag could be empty
+		// if help flag is not been defined. default help message will be used.
 		if name == "help" || name == "h" { // special case for nice help message.
+			// default usage message
 			f.usage()
 			return false, ErrHelp
 		}
+		// if it is not a 'help' flag.
+		// an error will be return.
 		return false, f.failf("flag provided but not defined: -%s", name)
 	}
 
+	// if flag.Value implement boolFlag
 	if fv, ok := flag.Value.(boolFlag); ok && fv.IsBoolFlag() { // special case: doesn't need an arg
+		// the value of bool flag could be emtpy
 		if hasValue {
+			// use boolValue type Set method to convert 'true' string to bool type vaule
 			if err := fv.Set(value); err != nil {
 				return false, f.failf("invalid boolean value %q for -%s: %v", value, name, err)
 			}
 		} else {
+			// use "true" string as default bool value
 			if err := fv.Set("true"); err != nil {
 				return false, f.failf("invalid boolean flag %s: %v", name, err)
 			}
@@ -957,20 +968,24 @@ func (f *FlagSet) parseOne() (bool, error) {
 		if !hasValue && len(f.args) > 0 {
 			// value is the next arg
 			hasValue = true
+			// use next arg as value
 			value, f.args = f.args[0], f.args[1:]
 		}
 		if !hasValue {
+			// this case means args is not enough to parse the second arg as first arg's value
 			return false, f.failf("flag needs an argument: -%s", name)
 		}
+		// use special type method 'Set' to convert 'value' string to special type value
 		if err := flag.Value.Set(value); err != nil {
 			return false, f.failf("invalid value %q for flag -%s: %v", value, name, err)
 		}
 	}
 	if f.actual == nil {
-		f.actual = make(map[string]*Flag)
+		f.actual = make(map[string]*Flag) // if actual is empty, create it
 	}
+	// actual map will store the flag with value parsed from CLI
 	f.actual[name] = flag
-	return true, nil
+	return true, nil // parse need flag and value
 }
 
 // Parse parses flag definitions from the argument list, which should not
