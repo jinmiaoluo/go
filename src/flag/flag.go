@@ -884,34 +884,50 @@ func (f *FlagSet) usage() {
 
 // parseOne parses one flag. It reports whether a flag was seen.
 func (f *FlagSet) parseOne() (bool, error) {
+	// args is empty
 	if len(f.args) == 0 {
 		return false, nil
 	}
+	// first args
 	s := f.args[0]
+	// first argument should begin with '-'
 	if len(s) < 2 || s[0] != '-' {
 		return false, nil
 	}
 	numMinuses := 1
+	// if second argument is also '-'
 	if s[1] == '-' {
 		numMinuses++
+		// first args is terminator?
 		if len(s) == 2 { // "--" terminates the flags
+			// the remain arguments is DataSource
 			f.args = f.args[1:]
 			return false, nil
 		}
 	}
+	// if first argument is not terminator
+	// the last letter in the first argument is the name of flag
 	name := s[numMinuses:]
+	// the flag name is legal?
+	// after'-' or '--' it should not be '-' '=' '<empty>'
 	if len(name) == 0 || name[0] == '-' || name[0] == '=' {
+		// no more flag should be parsed
 		return false, f.failf("bad flag syntax: %s", s)
 	}
 
 	// it's a flag. does it have an argument?
 	f.args = f.args[1:]
+	// default dont have value
 	hasValue := false
+	// value should be empty string
 	value := ""
+	// kkkk
 	for i := 1; i < len(name); i++ { // equals cannot be first
+		// use '=' to parse name and value
 		if name[i] == '=' {
 			value = name[i+1:]
 			hasValue = true
+			// name is a single letter
 			name = name[0:i]
 			break
 		}
